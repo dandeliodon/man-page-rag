@@ -23,9 +23,6 @@ htmlcov/
 data/
 qdrant_storage/
 
-# --- AI assistant + editors (personal tooling, not part of the project) ---
-.claude/
-CLAUDE.md
-CLAUDE.local.md
+# --- Editors ---
 .idea/
 .vscode/

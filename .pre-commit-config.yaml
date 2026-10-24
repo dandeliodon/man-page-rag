@@ -1,0 +1,50 @@
+# pre-commit runs these checks on the staged files before every `git commit`.
+# If a hook fails (or modifies files), the commit is aborted so you can review.
+# Setup once per clone:   uv run pre-commit install
+# Run on all files:       uv run pre-commit run --all-files
+
+repos:
+  # Generic file hygiene. Remote hooks: pre-commit downloads them into its own
+  # isolated cache (~/.cache/pre-commit), pinned to the `rev` tag.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict      # leftover <<<<<<< markers
+      - id: check-added-large-files   # blocks accidentally committed datasets/models (>500 KB)
+        args: ["--maxkb=500"]
+
+  # Secret scanning: blocks commits containing API keys, tokens, private keys.
+  # Matters for us: we'll have LLM/Qdrant/Langfuse keys in .env.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+
+  # Project tools run through `uv run`, as *local* hooks: their versions come
+  # from uv.lock — the same versions your editor, `make lint`, and CI use.
+  # (The alternative, remote hooks like astral-sh/ruff-pre-commit, pins a
+  # second copy of the version here that can drift from uv.lock.)
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types_or: [python, pyi]
+      - id: pyright
+        name: pyright
+        entry: uv run pyright
+        language: system
+        types: [python]
+        # Type checking is whole-program: a change in one file can break
+        # another, so check the whole project instead of just staged files.
+        pass_filenames: false

@@ -1,2 +1,1 @@
-def main() -> None:
-    print("Hello from manpage-rag!")
+"""manpage-rag: RAG assistant for Linux documentation."""

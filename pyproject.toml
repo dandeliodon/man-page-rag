@@ -1,17 +1,83 @@
 [project]
 name = "manpage-rag"
 version = "0.1.0"
-description = "Add your description here"
+description = "RAG assistant for Linux documentation (man pages + Arch Wiki) with citations and measurable quality"
 readme = "README.md"
 authors = [
     { name = "daffo", email = "115448400+dandeliodon@users.noreply.github.com" }
 ]
 requires-python = ">=3.14"
+# Runtime dependencies: what the app needs to run. Empty until Phase 1.
 dependencies = []
 
-[project.scripts]
-manpage-rag = "manpage_rag:main"
-
 [build-system]
+# Makes `src/manpage_rag` an installable package. `uv sync` installs it into
+# .venv in editable mode, so `import manpage_rag` works from anywhere —
+# including tests — without sys.path hacks.
 requires = ["uv_build>=0.13.1,<0.14.0"]
 build-backend = "uv_build"
+
+# Dev-only tools (PEP 735 dependency groups). They are installed by `uv sync`
+# but never shipped in the production image (`uv sync --no-dev`).
+# Exact versions are pinned in uv.lock; the `>=` here is just the floor.
+[dependency-groups]
+dev = [
+    "pre-commit>=4.7.0",
+    # The [nodejs] extra installs Node.js as a wheel inside .venv, so pyright
+    # (written in TypeScript) needs no system-wide Node.
+    "pyright[nodejs]>=1.1.414",
+    "pytest>=9.1.1",
+    "ruff>=0.17.2",
+]
+
+# ─────────────────────────────── ruff ───────────────────────────────
+# One tool for linting (finding bugs/smells) and formatting (code style).
+# The target Python version is read from `requires-python`, so it isn't repeated here.
+[tool.ruff]
+line-length = 100  # default is 88; 100 is common and fits long man-page strings better
+
+[tool.ruff.lint]
+# Rule families, by code prefix. Ruff enables only E4/E7/E9 + F by default;
+# each family below is opt-in. Full list: https://docs.astral.sh/ruff/rules/
+select = [
+    "E", "W",  # pycodestyle: basic style errors and warnings
+    "F",       # pyflakes: unused imports/variables, undefined names — real bugs
+    "I",       # isort: import sorting (replaces the separate isort tool)
+    "B",       # flake8-bugbear: likely bugs, e.g. mutable default arguments
+    "UP",      # pyupgrade: use modern syntax for our Python version (list[int], not List[int])
+    "SIM",     # flake8-simplify: simpler equivalent code
+    "C4",      # flake8-comprehensions: idiomatic list/dict/set comprehensions
+    "N",       # pep8-naming: snake_case functions, PascalCase classes
+    "PT",      # flake8-pytest-style: consistent pytest idioms
+    "S",       # flake8-bandit: security issues (subprocess with shell=True, eval, hardcoded secrets)
+    "RUF",     # ruff-specific rules
+]
+
+[tool.ruff.lint.per-file-ignores]
+# In tests, `assert` is the whole point. S101 ("assert is removed under python -O")
+# matters for production code, not for pytest.
+"tests/**" = ["S101"]
+
+# ────────────────────────────── pyright ─────────────────────────────
+# Static type checker: verifies type hints without running the code.
+[tool.pyright]
+include = ["src", "tests"]
+# "standard" everywhere by default, "strict" for the application code.
+# Strict additionally requires every function to be fully annotated and
+# forbids silently flowing `Any` through the code.
+typeCheckingMode = "standard"
+strict = ["src"]
+
+# ────────────────────────────── pytest ──────────────────────────────
+# Native TOML table (pytest >= 9.0); older projects use [tool.pytest.ini_options].
+[tool.pytest]
+minversion = "9.0"
+testpaths = ["tests"]
+# strict = strict_config + strict_markers + strict_xfail + strict_parametrization_ids:
+# typos in config or marker names become errors instead of being silently ignored.
+strict = true
+addopts = [
+    "-ra",                     # summary of every non-passing test at the end
+    "--import-mode=importlib", # recommended for new projects: tests import the
+                               # installed package, not files via sys.path tricks
+]
